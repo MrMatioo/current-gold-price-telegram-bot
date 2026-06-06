@@ -1,11 +1,13 @@
 import { Bot } from "grammy";
 import dotenv from "dotenv";
+import http from "http";
 dotenv.config();
 
 const botToken = process.env.BOT_TOKEN as string;
 const apiLink = process.env.GOLD_API as string;
 const channel = process.env.CHANNEL_USERNAME as string;
 const key = process.env.KEY;
+const server = http.createServer();
 const bot = new Bot(botToken);
 
 let lastPrice: number | null = null;
@@ -53,6 +55,9 @@ async function main() {
   }
 }
 
+server.listen(5000, () => {
+  console.log("server is running on port 5000");
+});
 main();
 
 setInterval(
