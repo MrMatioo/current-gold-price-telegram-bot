@@ -38,10 +38,10 @@ const fetchPrice = async (): Promise<number> => {
 };
 
 const formatMessage = (current: number, prev: number | null): string => {
-  const toman = (current / 10).toLocaleString("en-US");
+  const toman = current.toLocaleString("en-US");
   if (prev === null) return `${toman}`;
   const diffRial = current - prev;
-  const diffToman = (diffRial / 10).toLocaleString("en-US");
+  const diffToman = diffRial.toLocaleString("en-US");
   const percent = (diffRial / prev) * 100;
   const arrow = diffRial > 0 ? "▲" : diffRial < 0 ? "▼" : "●";
   const sign = diffRial > 0 ? "+" : "";
