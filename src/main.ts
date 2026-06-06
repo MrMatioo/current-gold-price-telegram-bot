@@ -38,14 +38,14 @@ const fetchPrice = async (): Promise<number> => {
 };
 
 const formatMessage = (current: number, prev: number | null): string => {
-  const toman = current / 10;
-  if (prev === null) return `${toman} تومان (اولین دریافت)`;
+  const toman = (current / 10).toLocaleString("en-US");
+  if (prev === null) return `${toman}`;
   const diffRial = current - prev;
-  const diffToman = diffRial / 10;
+  const diffToman = (diffRial / 10).toLocaleString("en-US");
   const percent = (diffRial / prev) * 100;
   const arrow = diffRial > 0 ? "▲" : diffRial < 0 ? "▼" : "●";
   const sign = diffRial > 0 ? "+" : "";
-  return `${toman}  Toman  \n ${arrow}  ${diffToman}  Toman (${sign}${percent.toFixed(2)})%`;
+  return `💰${toman}  Toman  \n ${arrow}  ${diffToman}  Toman (${sign}${percent.toFixed(2)})%`;
 };
 
 async function main() {
