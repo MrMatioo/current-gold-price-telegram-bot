@@ -1,68 +1,66 @@
 import { Bot } from "grammy";
 import dotenv from "dotenv";
 import http from "http";
+
 dotenv.config();
 
-const botToken = process.env.BOT_TOKEN as string;
-const apiLink = process.env.GOLD_API as string;
-const channel = process.env.CHANNEL_USERNAME as string;
-const key = process.env.KEY;
-const server = http.createServer();
-const bot = new Bot(botToken);
+const botToken = process.env.BOT_TOKEN;
+const apiLink = process.env.GOLD_API;
+const channel = process.env.CHANNEL_USERNAME;
+const apiKey = process.env.KEY;
 
+if (!botToken || !apiLink || !channel || !apiKey) {
+  console.error("Missing env variables");
+  process.exit(1);
+}
+
+const bot = new Bot(botToken);
 let lastPrice: number | null = null;
 
-const fetchPrice = async () => {
-  const response = await fetch(apiLink, {
+const server = http.createServer((_req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("Bot is running");
+});
+server.listen(5000, () => console.log("HTTP server on port 5000"));
+
+const fetchPrice = async (): Promise<number> => {
+  const res = await fetch(apiLink, {
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
+      Authorization: `Bearer ${apiKey}`,
     },
   });
-  const result = await response.json();
-  const gold18k = result.data.prices.GOLD18K;
-  if (!gold18k || !gold18k.current) throw new Error("Price not found");
-  return parseInt(gold18k.current, 10);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json();
+  const priceObj = json?.data?.prices?.GOLD18K;
+  if (!priceObj?.current) throw new Error("Invalid API response");
+  return parseInt(priceObj.current, 10);
 };
 
-const formatMessage = (currentPrice: number, previousPrice: number | null) => {
-  const currentTomans = (currentPrice / 10).toLocaleString("fa-IR");
-  let changeText = "";
-
-  if (previousPrice !== null) {
-    const changeRial = currentPrice - previousPrice;
-    const changeToman = changeRial / 10;
-    const changePercent = (changeRial / previousPrice) * 100;
-    const arrow = changeRial > 0 ? "▲" : changeRial < 0 ? "▼" : "●";
-    const sign = changeRial > 0 ? "+" : "";
-    changeText = `\n📊 تغییر نسبت به اپدیت قبلی: ${arrow} ${sign}${changeToman.toLocaleString("fa-IR")} تومان (${sign}${changePercent.toFixed(2)}%)`;
-  } else {
-    changeText = "\n📌 اولین دریافت است، داده قبلی موجود نیست.";
-  }
-
-  return ` ${currentTomans} تومان${changeText}`;
+const formatMessage = (current: number, prev: number | null): string => {
+  const toman = (current / 10).toLocaleString("fa-IR");
+  if (prev === null) return `💰 طلای ۱۸ عیار: ${toman} تومان (اولین دریافت)`;
+  const diffRial = current - prev;
+  const diffToman = diffRial / 10;
+  const percent = (diffRial / prev) * 100;
+  const arrow = diffRial > 0 ? "▲" : diffRial < 0 ? "▼" : "●";
+  const sign = diffRial > 0 ? "+" : "";
+  return `💰 طلای ۱۸ عیار: ${toman} تومان\n📊 ${arrow} ${sign}${diffToman.toLocaleString("fa-IR")} تومان (${sign}${percent.toFixed(2)}%)`;
 };
 
 async function main() {
   try {
-    const currentPrice = await fetchPrice();
-    const text = formatMessage(currentPrice, lastPrice);
-    await bot.api.sendMessage(channel, text);
-    console.log("Message sent:", text);
-    lastPrice = currentPrice;
-  } catch (error) {
-    console.error("Error:", error);
+    const current = await fetchPrice();
+    const text = formatMessage(current, lastPrice);
+    await bot.api.sendMessage(channel!, text);
+    console.log("Sent:", text);
+    lastPrice = current;
+  } catch (err: any) {
+    console.error("MAIN ERROR:", err?.message || err);
   }
 }
 
-server.listen(5000, () => {
-  console.log("server is running on port 5000");
-});
-main();
+bot.start().catch(console.error);
 
-setInterval(
-  () => {
-    main().catch(console.error);
-  },
-  10 * 60 * 1000,
-);
+main();
+setInterval(() => main(), 10 * 60 * 1000);
