@@ -45,7 +45,7 @@ const formatMessage = (current: number, prev: number | null): string => {
   const percent = (diffRial / prev) * 100;
   const arrow = diffRial > 0 ? "▲" : diffRial < 0 ? "▼" : "●";
   const sign = diffRial > 0 ? "+" : "";
-  return `${toman} تومان\n📊 ${arrow} ${sign}${diffToman} تومان (${sign}${percent.toFixed(2)}%)`;
+  return `${toman} Toman  \n ${arrow}  ${diffToman} (${sign}${percent})%`;
 };
 
 async function main() {
