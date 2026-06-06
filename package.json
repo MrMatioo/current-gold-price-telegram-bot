@@ -1,0 +1,18 @@
+{
+  "name": "gold-price",
+  "version": "1.0.0",
+  "description": "a bot to send Gold's current price.",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "main.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@types/dotenv": "^6.1.1",
+    "dotenv": "^17.4.2",
+    "grammy": "^1.43.0"
+  }
+}
