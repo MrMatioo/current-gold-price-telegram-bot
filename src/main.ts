@@ -4,18 +4,27 @@ import http from "http";
 
 dotenv.config();
 
-const botToken = process.env.BOT_TOKEN;
-const apiLink = process.env.GOLD_API;
-const channel = process.env.CHANNEL_USERNAME;
-const apiKey = process.env.KEY;
-
-if (!botToken || !apiLink || !channel || !apiKey) {
-  console.error("Missing env variables");
-  process.exit(1);
+const requiredEnv = [
+  "BOT_TOKEN",
+  "GOLD_API",
+  "USD_API",
+  "CHANNEL_USERNAME",
+  "KEY",
+];
+for (const key of requiredEnv) {
+  if (!process.env[key]) {
+    console.error(`Missing env: ${key}`);
+    process.exit(1);
+  }
 }
 
+const botToken = process.env.BOT_TOKEN!;
+const goldAPI = process.env.GOLD_API!;
+const usdAPI = process.env.USD_API!;
+const channel = process.env.CHANNEL_USERNAME!;
+const apiKey = process.env.KEY!;
+
 const bot = new Bot(botToken);
-let lastPrice: number | null = null;
 
 const server = http.createServer((_req, res) => {
   res.writeHead(200, { "Content-Type": "text/plain" });
@@ -23,25 +32,37 @@ const server = http.createServer((_req, res) => {
 });
 server.listen(5000, () => console.log("HTTP server on port 5000"));
 
-const fetchPrice = async (): Promise<number> => {
-  const res = await fetch(apiLink, {
+let lastGoldPrice: number | null = null;
+let lastUsdPrice: number | null = null;
+
+async function fetchPrice(
+  url: string,
+  label: string,
+  key: string,
+): Promise<number> {
+  const res = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = await res.json();
-  const priceObj = json?.data?.prices?.GOLD18K;
-  if (!priceObj?.current) throw new Error("Invalid API response");
-  return parseInt(priceObj.current, 10);
-};
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} for ${label}`);
+  }
+
+  const json: any = await res.json();
+  const price = json?.data?.prices?.[key]?.current;
+  if (typeof price !== "string" && typeof price !== "number") {
+    throw new Error(`Invalid response for ${label}: key ${key} not found`);
+  }
+  return parseFloat(String(price));
+}
 
 const formatMessage = (current: number, prev: number | null): string => {
   const toman = current.toLocaleString("en-US");
   if (prev === null) return `⚫${toman}`;
   const diffRial = current - prev;
-  const diffToman = diffRial.toLocaleString("en-US");
   const percent = (diffRial / prev) * 100;
   const arrow = diffRial > 0 ? "🟢" : diffRial < 0 ? "🔴" : "⚫";
   const sign = diffRial > 0 ? "+" : "";
@@ -50,17 +71,26 @@ const formatMessage = (current: number, prev: number | null): string => {
 
 async function main() {
   try {
-    const current = await fetchPrice();
-    const text = formatMessage(current, lastPrice);
-    await bot.api.sendMessage(channel!, text);
-    console.log("Sent:", text);
-    lastPrice = current;
-  } catch (err: any) {
-    console.error("MAIN ERROR:", err?.message || err);
+    const [goldPrice, usdPrice] = await Promise.all([
+      fetchPrice(goldAPI, "Gold", "GOLD18K"),
+      fetchPrice(usdAPI, "USD", "USD"),
+    ]);
+
+    const goldText = formatMessage(goldPrice, lastGoldPrice);
+    const usdText = formatMessage(usdPrice, lastUsdPrice);
+
+    const fullMessage = `Gold:${goldText}\nUSD:${usdText}`;
+
+    await bot.api.sendMessage(channel, fullMessage);
+    console.log("Sent:", fullMessage);
+
+    lastGoldPrice = goldPrice;
+    lastUsdPrice = usdPrice;
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error("MAIN ERROR:", errorMsg);
   }
 }
-
-bot.start().catch(console.error);
 
 main();
 setInterval(() => main(), 5 * 60 * 1000);
