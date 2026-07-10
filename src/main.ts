@@ -41,25 +41,29 @@ function formatPriceLine(
   current: number,
   previous: number | undefined,
 ): string {
-  // Keeps labels at a fixed width (8 chars) so spaces align perfectly
-  const formattedLabel = label.padEnd(8, " ");
+  // Set to 7 so 4-char labels (gold, usdt) get exactly 3 extra spaces
+  const formattedLabel = label.padEnd(7, " ");
 
-  if (!current) return `⚫️ <code>${formattedLabel}</code> =>   Unavailable`;
+  const priceString = current.toLocaleString();
+  // Set to 10 so the longest price gets exactly 3 extra spaces
+  const formattedPrice = priceString.padEnd(10, " ");
 
-  // First run or no price change
-  if (!previous || current === previous) {
-    return `⚫️ <code>${formattedLabel}</code> =>   ${current.toLocaleString()} : (0%)`;
+  if (!current) {
+    return `⚫️ <code>${formattedLabel}</code>=>  <code>${"Unavailable".padEnd(10, " ")}</code>  :  (0%)`;
   }
 
-  // Calculate the percentage change
+  if (!previous || current === previous) {
+    return `⚫️ <code>${formattedLabel}</code>=>  <code>${formattedPrice}</code>  :  (0%)`;
+  }
+
   const changePercent = ((current - previous) / previous) * 100;
   const sign = changePercent > 0 ? "+" : "";
   const formattedPercent = `${sign}${changePercent.toFixed(2)}%`;
 
   if (changePercent > 0) {
-    return `🟢 <code>${formattedLabel}</code> =>   ${current.toLocaleString()} : (${formattedPercent})`;
+    return `🟢 <code>${formattedLabel}</code>=>  <code>${formattedPrice}</code>  :  (${formattedPercent})`;
   } else {
-    return `🔴 <code>${formattedLabel}</code> =>   ${current.toLocaleString()} : (${formattedPercent})`;
+    return `🔴 <code>${formattedLabel}</code>=>  <code>${formattedPrice}</code>  :  (${formattedPercent})`;
   }
 }
 
@@ -67,11 +71,20 @@ async function checkAndSendPrices() {
   const currentPrices = await fetchPrices();
   if (!currentPrices) return;
 
-  // Ordered by: gold -> btc -> usd -> usdt
+  const btcInUsdt =
+    currentPrices.usdtPrice > 0
+      ? Math.round(currentPrices.btcPrice / currentPrices.usdtPrice)
+      : 0;
+
+  const prevBtcInUsdt =
+    previousPrices && previousPrices.usdtPrice > 0
+      ? Math.round(previousPrices.btcPrice / previousPrices.usdtPrice)
+      : undefined;
+
   const messageText = [
     `📊 <b>Price Updates</b>\n`,
-    formatPriceLine("gold", currentPrices.gold18k, previousPrices?.gold18k), // Changed "gold18k" to "gold"
-    formatPriceLine("btc", currentPrices.btcPrice, previousPrices?.btcPrice),
+    formatPriceLine("gold", currentPrices.gold18k, previousPrices?.gold18k),
+    formatPriceLine("btc", btcInUsdt, prevBtcInUsdt),
     formatPriceLine("usd", currentPrices.usdPrice, previousPrices?.usdPrice),
     formatPriceLine("usdt", currentPrices.usdtPrice, previousPrices?.usdtPrice),
     `\n--\n${channel}`,
@@ -86,7 +99,6 @@ async function checkAndSendPrices() {
     console.error("Telegram Post Error:", telegramError);
   }
 }
-
 async function startBot() {
   console.log("🤖 Price Bot has started successfully...");
 
