@@ -41,14 +41,14 @@ function formatPriceLine(
   current: number,
   previous: number | undefined,
 ): string {
-  // Keeps labels at a fixed width so spaces align perfectly
-  const formattedLabel = label.padEnd(3, " ");
+  // Keeps labels at a fixed width (8 chars) so spaces align perfectly
+  const formattedLabel = label.padEnd(8, " ");
 
-  if (!current) return `⚫️ <code>${formattedLabel}</code> => Unavailable`;
+  if (!current) return `⚫️ <code>${formattedLabel}</code> =>   Unavailable`;
 
   // First run or no price change
   if (!previous || current === previous) {
-    return `⚫️ <code>${formattedLabel}</code> => ${current.toLocaleString()} (0%)`;
+    return `⚫️ <code>${formattedLabel}</code> =>   ${current.toLocaleString()} : (0%)`;
   }
 
   // Calculate the percentage change
@@ -57,9 +57,9 @@ function formatPriceLine(
   const formattedPercent = `${sign}${changePercent.toFixed(2)}%`;
 
   if (changePercent > 0) {
-    return `🟢 <code>${formattedLabel}</code> => ${current.toLocaleString()} : (${formattedPercent})`;
+    return `🟢 <code>${formattedLabel}</code> =>   ${current.toLocaleString()} : (${formattedPercent})`;
   } else {
-    return `🔴 <code>${formattedLabel}</code> => ${current.toLocaleString()} : (${formattedPercent})`;
+    return `🔴 <code>${formattedLabel}</code> =>   ${current.toLocaleString()} : (${formattedPercent})`;
   }
 }
 
@@ -67,30 +67,17 @@ async function checkAndSendPrices() {
   const currentPrices = await fetchPrices();
   if (!currentPrices) return;
 
-  // Formatted using HTML tags
+  // Ordered by: gold -> btc -> usd -> usdt
   const messageText = [
     `📊 <b>Price Updates</b>\n`,
-    formatPriceLine("gold", currentPrices.gold18k, previousPrices?.gold18k),
-    formatPriceLine(
-      "btc     ",
-      currentPrices.btcPrice,
-      previousPrices?.btcPrice,
-    ),
-    formatPriceLine(
-      "usd     ",
-      currentPrices.usdPrice,
-      previousPrices?.usdPrice,
-    ),
-    formatPriceLine(
-      "usdt    ",
-      currentPrices.usdtPrice,
-      previousPrices?.usdtPrice,
-    ),
-    `\n${channel}`, // Channel ID is now plain text without <code> tags
+    formatPriceLine("gold", currentPrices.gold18k, previousPrices?.gold18k), // Changed "gold18k" to "gold"
+    formatPriceLine("btc", currentPrices.btcPrice, previousPrices?.btcPrice),
+    formatPriceLine("usd", currentPrices.usdPrice, previousPrices?.usdPrice),
+    formatPriceLine("usdt", currentPrices.usdtPrice, previousPrices?.usdtPrice),
+    `\n--\n${channel}`,
   ].join("\n");
 
   try {
-    // parse_mode is now set to HTML
     await bot.api.sendMessage(channel, messageText, { parse_mode: "HTML" });
     console.log("Prices successfully posted to the channel.");
 
@@ -99,6 +86,7 @@ async function checkAndSendPrices() {
     console.error("Telegram Post Error:", telegramError);
   }
 }
+
 async function startBot() {
   console.log("🤖 Price Bot has started successfully...");
 
