@@ -1,96 +1,117 @@
 import { Bot } from "grammy";
 import dotenv from "dotenv";
-import http from "http";
 
 dotenv.config();
 
-const requiredEnv = [
-  "BOT_TOKEN",
-  "GOLD_API",
-  "USD_API",
-  "CHANNEL_USERNAME",
-  "KEY",
-];
-for (const key of requiredEnv) {
-  if (!process.env[key]) {
-    console.error(`Missing env: ${key}`);
-    process.exit(1);
-  }
-}
-
 const botToken = process.env.BOT_TOKEN!;
-const goldAPI = process.env.GOLD_API!;
-const usdAPI = process.env.USD_API!;
 const channel = process.env.CHANNEL_USERNAME!;
 const apiKey = process.env.KEY!;
 
 const bot = new Bot(botToken);
 
-const server = http.createServer((_req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("Bot is running");
-});
-server.listen(5000, () => console.log("HTTP server on port 5000"));
+// Cache for storing prices from the previous execution to calculate percentages
+let previousPrices: {
+  gold18k: number;
+  usdPrice: number;
+  btcPrice: number;
+  usdtPrice: number;
+} | null = null;
 
-let lastGoldPrice: number | null = null;
-let lastUsdPrice: number | null = null;
-
-async function fetchPrice(
-  url: string,
-  label: string,
-  key: string,
-): Promise<number> {
-  const res = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-  });
-
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status} for ${label}`);
-  }
-
-  const json: any = await res.json();
-  const price = json?.data?.prices?.[key]?.current;
-  if (typeof price !== "string" && typeof price !== "number") {
-    throw new Error(`Invalid response for ${label}: key ${key} not found`);
-  }
-  return parseFloat(String(price));
-}
-
-const formatMessage = (current: number, prev: number | null): string => {
-  const toman = current.toLocaleString("en-US");
-  if (prev === null) return `⚫${toman}`;
-  const diffRial = current - prev;
-  const percent = (diffRial / prev) * 100;
-  const arrow = diffRial > 0 ? "🟢" : diffRial < 0 ? "🔴" : "⚫";
-  const sign = diffRial > 0 ? "+" : "";
-  return ` ${arrow}${toman} Toman  (${sign}${percent.toFixed(2)})%`;
-};
-
-async function main() {
+async function fetchPrices() {
   try {
-    const [goldPrice, usdPrice] = await Promise.all([
-      fetchPrice(goldAPI, "Gold", "GOLD18K"),
-      fetchPrice(usdAPI, "USD", "USD"),
-    ]);
+    const response = await fetch(
+      `https://api.nerkh.io/v1/prices/json/all?x-api-key=${apiKey}`,
+    );
+    const resJson = await response.json();
 
-    const goldText = formatMessage(goldPrice, lastGoldPrice);
-    const usdText = formatMessage(usdPrice, lastUsdPrice);
+    const gold18k = Number(resJson?.data?.gold?.GOLD18K?.current) || 0;
+    const usdPrice = Number(resJson?.data?.currency?.USD?.current) || 0;
+    const btcPrice = Number(resJson?.data?.crypto?.BTC?.current) || 0;
+    const usdtPrice = Number(resJson?.data?.crypto?.USDT?.current) || 0;
 
-    const fullMessage = `Gold:${goldText}\nUSD:${usdText}`;
-
-    await bot.api.sendMessage(channel, fullMessage);
-    console.log("Sent:", fullMessage);
-
-    lastGoldPrice = goldPrice;
-    lastUsdPrice = usdPrice;
-  } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    console.error("MAIN ERROR:", errorMsg);
+    return { gold18k, usdPrice, btcPrice, usdtPrice };
+  } catch (error) {
+    console.error("API Fetch Error:", error);
+    return null;
   }
 }
 
-main();
-setInterval(() => main(), 5 * 60 * 1000);
+function formatPriceLine(
+  label: string,
+  current: number,
+  previous: number | undefined,
+): string {
+  // Keeps labels at a fixed width so spaces align perfectly
+  const formattedLabel = label.padEnd(8, " ");
+
+  if (!current) return `⚫️ \`${formattedLabel}\`  =>  Unavailable`;
+
+  // First run or no price change
+  if (!previous || current === previous) {
+    return `⚫️ \`${formattedLabel}\`  =>  ${current.toLocaleString()}  :  (0%)`;
+  }
+
+  // Calculate the percentage change
+  const changePercent = ((current - previous) / previous) * 100;
+  const sign = changePercent > 0 ? "+" : "";
+  const formattedPercent = `${sign}${changePercent.toFixed(2)}%`;
+
+  if (changePercent > 0) {
+    return `🟢 \`${formattedLabel}\`  =>  ${current.toLocaleString()}  :  (${formattedPercent})`;
+  } else {
+    return `🔴 \`${formattedLabel}\`  =>  ${current.toLocaleString()}  :  (${formattedPercent})`;
+  }
+}
+
+async function checkAndSendPrices() {
+  const currentPrices = await fetchPrices();
+  if (!currentPrices) return;
+
+  // Ordered strictly by: gold18k -> btc -> usd -> usdt
+  const messageText = [
+    `📊 **Price Updates**\n`,
+    formatPriceLine("gold18k", currentPrices.gold18k, previousPrices?.gold18k),
+    formatPriceLine(
+      "btc     ",
+      currentPrices.btcPrice,
+      previousPrices?.btcPrice,
+    ),
+    formatPriceLine(
+      "usd     ",
+      currentPrices.usdPrice,
+      previousPrices?.usdPrice,
+    ),
+    formatPriceLine(
+      "usdt    ",
+      currentPrices.usdtPrice,
+      previousPrices?.usdtPrice,
+    ),
+  ].join("\n");
+
+  try {
+    await bot.api.sendMessage(channel, messageText, { parse_mode: "Markdown" });
+    console.log("Prices successfully posted to the channel.");
+
+    // Update the cache for the next interval comparison
+    previousPrices = currentPrices;
+  } catch (telegramError) {
+    console.error("Telegram Post Error:", telegramError);
+  }
+}
+
+async function startBot() {
+  console.log("🤖 Price Bot has started successfully...");
+
+  // Immediate execution on startup
+  await checkAndSendPrices();
+
+  // Schedule to run every 5 minutes (5 * 60 * 1000 ms)
+  setInterval(
+    async () => {
+      await checkAndSendPrices();
+    },
+    5 * 60 * 1000,
+  );
+}
+
+startBot();
