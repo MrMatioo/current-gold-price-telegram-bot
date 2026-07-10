@@ -44,11 +44,11 @@ function formatPriceLine(
   // Keeps labels at a fixed width so spaces align perfectly
   const formattedLabel = label.padEnd(8, " ");
 
-  if (!current) return `⚫️ \`${formattedLabel}\`  =>  Unavailable`;
+  if (!current) return `⚫️ <code>${formattedLabel}</code>  =>  Unavailable`;
 
   // First run or no price change
   if (!previous || current === previous) {
-    return `⚫️ \`${formattedLabel}\`  =>  ${current.toLocaleString()}  :  (0%)`;
+    return `⚫️ <code>${formattedLabel}</code>  =>  ${current.toLocaleString()}  :  (0%)`;
   }
 
   // Calculate the percentage change
@@ -57,9 +57,9 @@ function formatPriceLine(
   const formattedPercent = `${sign}${changePercent.toFixed(2)}%`;
 
   if (changePercent > 0) {
-    return `🟢 \`${formattedLabel}\`  =>  ${current.toLocaleString()}  :  (${formattedPercent})`;
+    return `🟢 <code>${formattedLabel}</code>  =>  ${current.toLocaleString()}  :  (${formattedPercent})`;
   } else {
-    return `🔴 \`${formattedLabel}\`  =>  ${current.toLocaleString()}  :  (${formattedPercent})`;
+    return `🔴 <code>${formattedLabel}</code>  =>  ${current.toLocaleString()}  :  (${formattedPercent})`;
   }
 }
 
@@ -67,8 +67,9 @@ async function checkAndSendPrices() {
   const currentPrices = await fetchPrices();
   if (!currentPrices) return;
 
+  // Formatted using HTML tags
   const messageText = [
-    `📊 **Price Updates**\n`,
+    `📊 <b>Price Updates</b>\n`,
     formatPriceLine("gold18k", currentPrices.gold18k, previousPrices?.gold18k),
     formatPriceLine(
       "btc     ",
@@ -85,11 +86,12 @@ async function checkAndSendPrices() {
       currentPrices.usdtPrice,
       previousPrices?.usdtPrice,
     ),
-    `\n--\n${channel}`, // Adds 2 hyphens line and the channel ID at the end
+    `\n${channel}`, // Channel ID is now plain text without <code> tags
   ].join("\n");
 
   try {
-    await bot.api.sendMessage(channel, messageText, { parse_mode: "Markdown" });
+    // parse_mode is now set to HTML
+    await bot.api.sendMessage(channel, messageText, { parse_mode: "HTML" });
     console.log("Prices successfully posted to the channel.");
 
     previousPrices = currentPrices;
@@ -97,7 +99,6 @@ async function checkAndSendPrices() {
     console.error("Telegram Post Error:", telegramError);
   }
 }
-
 async function startBot() {
   console.log("🤖 Price Bot has started successfully...");
 
