@@ -42,7 +42,7 @@ function formatPriceLine(
   previous: number | undefined,
 ): string {
   // Keeps labels at a fixed width so spaces align perfectly
-  const formattedLabel = label.padEnd(8, " ");
+  const formattedLabel = label.padEnd(3, " ");
 
   if (!current) return `⚫️ <code>${formattedLabel}</code> => Unavailable`;
 
@@ -57,9 +57,9 @@ function formatPriceLine(
   const formattedPercent = `${sign}${changePercent.toFixed(2)}%`;
 
   if (changePercent > 0) {
-    return `🟢 <code>${formattedLabel}</code> => ${current.toLocaleString()} (${formattedPercent})`;
+    return `🟢 <code>${formattedLabel}</code> => ${current.toLocaleString()} : (${formattedPercent})`;
   } else {
-    return `🔴 <code>${formattedLabel}</code> => ${current.toLocaleString()} (${formattedPercent})`;
+    return `🔴 <code>${formattedLabel}</code> => ${current.toLocaleString()} : (${formattedPercent})`;
   }
 }
 
