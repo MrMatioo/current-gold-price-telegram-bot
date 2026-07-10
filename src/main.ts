@@ -70,7 +70,7 @@ async function checkAndSendPrices() {
   // Formatted using HTML tags
   const messageText = [
     `📊 <b>Price Updates</b>\n`,
-    formatPriceLine("gold18k", currentPrices.gold18k, previousPrices?.gold18k),
+    formatPriceLine("gold", currentPrices.gold18k, previousPrices?.gold18k),
     formatPriceLine(
       "btc     ",
       currentPrices.btcPrice,
