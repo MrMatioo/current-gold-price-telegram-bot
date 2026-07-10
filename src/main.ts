@@ -44,11 +44,11 @@ function formatPriceLine(
   // Keeps labels at a fixed width so spaces align perfectly
   const formattedLabel = label.padEnd(8, " ");
 
-  if (!current) return `⚫️ <code>${formattedLabel}</code>  =>  Unavailable`;
+  if (!current) return `⚫️ <code>${formattedLabel}</code> => Unavailable`;
 
   // First run or no price change
   if (!previous || current === previous) {
-    return `⚫️ <code>${formattedLabel}</code>  =>  ${current.toLocaleString()}  :  (0%)`;
+    return `⚫️ <code>${formattedLabel}</code> => ${current.toLocaleString()} (0%)`;
   }
 
   // Calculate the percentage change
@@ -57,9 +57,9 @@ function formatPriceLine(
   const formattedPercent = `${sign}${changePercent.toFixed(2)}%`;
 
   if (changePercent > 0) {
-    return `🟢 <code>${formattedLabel}</code>  =>  ${current.toLocaleString()}  :  (${formattedPercent})`;
+    return `🟢 <code>${formattedLabel}</code> => ${current.toLocaleString()} (${formattedPercent})`;
   } else {
-    return `🔴 <code>${formattedLabel}</code>  =>  ${current.toLocaleString()}  :  (${formattedPercent})`;
+    return `🔴 <code>${formattedLabel}</code> => ${current.toLocaleString()} (${formattedPercent})`;
   }
 }
 
