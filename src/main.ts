@@ -67,7 +67,6 @@ async function checkAndSendPrices() {
   const currentPrices = await fetchPrices();
   if (!currentPrices) return;
 
-  // Ordered strictly by: gold18k -> btc -> usd -> usdt
   const messageText = [
     `📊 **Price Updates**\n`,
     formatPriceLine("gold18k", currentPrices.gold18k, previousPrices?.gold18k),
@@ -86,13 +85,13 @@ async function checkAndSendPrices() {
       currentPrices.usdtPrice,
       previousPrices?.usdtPrice,
     ),
+    `\n--\n${channel}`, // Adds 2 hyphens line and the channel ID at the end
   ].join("\n");
 
   try {
     await bot.api.sendMessage(channel, messageText, { parse_mode: "Markdown" });
     console.log("Prices successfully posted to the channel.");
 
-    // Update the cache for the next interval comparison
     previousPrices = currentPrices;
   } catch (telegramError) {
     console.error("Telegram Post Error:", telegramError);
